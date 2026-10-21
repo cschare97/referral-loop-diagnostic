@@ -97,6 +97,10 @@ Found from OpenEMR's published table documentation and checked against a running
 - `lbt_data` holds the details as key/value rows (`form_id` → `transactions.id`, `field_id`, `field_value`).
 - The fields used here: `refer_date`, `refer_to`, `refer_from`, `body` (reason), `refer_diag`,
   `reply_date`, `reply_findings`.
+- `refer_to` and `refer_from` hold a **provider (user) id**, not a name. The tool looks that id up
+  in the `users` table and reports the provider's specialty (or "Dr. <last name>" if none is set).
+  This was found by creating a referral through OpenEMR's own form and checking what it stored.
+  Older seed rows that hold plain specialty text still work and are passed through unchanged.
 
 ## What it does not do
 

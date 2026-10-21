@@ -38,20 +38,30 @@ OWNERS = {
 
 # One row per referral; lbt_data pivoted into columns.
 QUERY = """
-SELECT t.id, t.pid, CONCAT(p.fname,' ',p.lname) AS patient, t.groupname,
-  MAX(CASE WHEN l.field_id='refer_date'  THEN l.field_value END) AS refer_date,
-  MAX(CASE WHEN l.field_id='refer_to'    THEN l.field_value END) AS refer_to,
-  MAX(CASE WHEN l.field_id='body'        THEN l.field_value END) AS body,
-  MAX(CASE WHEN l.field_id='refer_diag'  THEN l.field_value END) AS refer_diag,
-  MAX(CASE WHEN l.field_id='reply_date'  THEN l.field_value END) AS reply_date,
-  MAX(CASE WHEN l.field_id='reply_findings' THEN l.field_value END) AS reply_findings
-FROM transactions t
-LEFT JOIN lbt_data l ON l.form_id = t.id
-LEFT JOIN patient_data p ON p.pid = t.pid
-WHERE t.title = 'LBTref'
-GROUP BY t.id, t.pid, patient, t.groupname
-ORDER BY t.id
+SELECT x.id, x.pid, x.patient, x.groupname, x.refer_date,
+  CASE WHEN x.refer_to REGEXP '^[0-9]+$'
+       THEN COALESCE(NULLIF(u.specialty,''), CONCAT('Dr. ', u.lname))
+       ELSE x.refer_to END AS refer_to,
+  x.body, x.refer_diag, x.reply_date, x.reply_findings
+FROM (
+  SELECT t.id, t.pid, CONCAT(p.fname,' ',p.lname) AS patient, t.groupname,
+    MAX(CASE WHEN l.field_id='refer_date'  THEN l.field_value END) AS refer_date,
+    MAX(CASE WHEN l.field_id='refer_to'    THEN l.field_value END) AS refer_to,
+    MAX(CASE WHEN l.field_id='body'        THEN l.field_value END) AS body,
+    MAX(CASE WHEN l.field_id='refer_diag'  THEN l.field_value END) AS refer_diag,
+    MAX(CASE WHEN l.field_id='reply_date'  THEN l.field_value END) AS reply_date,
+    MAX(CASE WHEN l.field_id='reply_findings' THEN l.field_value END) AS reply_findings
+  FROM transactions t
+  LEFT JOIN lbt_data l ON l.form_id = t.id
+  LEFT JOIN patient_data p ON p.pid = t.pid
+  WHERE t.title = 'LBTref'
+  GROUP BY t.id, t.pid, patient, t.groupname
+) x
+LEFT JOIN users u ON x.refer_to REGEXP '^[0-9]+$' AND u.id = CAST(x.refer_to AS UNSIGNED)
+ORDER BY x.id
 """
+# OpenEMR stores Refer To as a provider (user) id. We look up that provider's specialty.
+# Older seed rows stored the specialty as plain text; those are passed through unchanged.
 COLS = ["id", "pid", "patient", "groupname", "refer_date", "refer_to", "body", "refer_diag", "reply_date", "reply_findings"]
 
 
